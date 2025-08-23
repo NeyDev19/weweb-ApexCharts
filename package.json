@@ -1,0 +1,15 @@
+{
+  "name": "weweb-chart",
+  "version": "0.0.1",
+  "scripts": {
+    "build": "weweb build",
+    "serve": "weweb serve"
+  },
+  "devDependencies": {
+    "@weweb/cli": "latest"
+  },
+  "dependencies": {
+    "apexcharts": "^5.3.4",
+    "vue3-apexcharts": "^1.8.0"
+  }
+}
