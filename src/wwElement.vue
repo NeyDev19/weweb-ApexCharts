@@ -106,6 +106,9 @@ export default {
           show: this.content.isLegend,
           position: this.content.legendPosition,
         },
+        grid: {
+          show: false, // Remove background grid lines
+        },
       };
 
       // Configure X-axis with categories or labels
@@ -127,11 +130,21 @@ export default {
 
       // Configure Y-axis with better scaling
       if (!['pie', 'donut', 'radialBar'].includes(this.chartType)) {
+        const baseYAxisConfig = {
+          forceNiceScale: true,
+          tickAmount: 6, // Limit to ~6 tick marks for cleaner look
+          labels: {
+            formatter: function(value) {
+              return Math.round(value);
+            }
+          }
+        };
+
         if (this.content.yAxisStartFromZero) {
           // Force Y-axis to start from 0
           options.yaxis = {
+            ...baseYAxisConfig,
             min: 0,
-            forceNiceScale: true,
           };
         } else {
           // Auto-scale with padding for better visualization
@@ -175,14 +188,12 @@ export default {
             const yMax = actualMax + padding;
             
             options.yaxis = {
+              ...baseYAxisConfig,
               min: yMin,
               max: yMax,
-              forceNiceScale: true,
             };
           } else {
-            options.yaxis = {
-              forceNiceScale: true,
-            };
+            options.yaxis = baseYAxisConfig;
           }
         }
       }
