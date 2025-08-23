@@ -1,276 +1,374 @@
-<template>
-  <div class="apexchart-element">
-    <apexchart
-      ref="chart"
-      width="100%"
-      height="100%"
-      :type="chartType"
-      :options="finalChartOptions"
-      :series="finalSeries"
-    ></apexchart>
-  </div>
-</template>
-
-<script>
-import VueApexCharts from 'vue3-apexcharts';
-
 export default {
-  components: {
-    apexchart: VueApexCharts,
+  editor: {
+    label: {
+      en: 'Apexchart',
+    },
+    icon: 'chart-bar',
+    customSettingsPropertiesOrder: [
+      'dataType',
+      ['series', 'chartOptions'],
+      'data',
+      'dataError',
+      'chartType',
+      ['categoryField', 'valueField', 'seriesField'],
+      'dataLabels',
+      'curve',
+      'stacked',
+      'isLegend',
+      'legendPosition',
+      'colors',
+      // Y-axis scaling
+      'yAxisStartFromZero',
+      // Support Lines section
+      'supportLinesSection',
+      'showMinLine',
+      ['customMinValue', 'minLineColor', 'minLineWidth', 'minLineDashed', 'minLineLabel', 'minLineLabelPosition'],
+      'showMaxLine',
+      ['customMaxValue', 'maxLineColor', 'maxLineWidth', 'maxLineDashed', 'maxLineLabel', 'maxLineLabelPosition'],
+    ],
   },
-  props: {
-    content: {
-      type: Object,
-      required: true
+  triggerEvents: [
+    {
+      name: 'dataPointClick',
+      label: { en: 'On data point click' },
+      event: {
+        seriesIndex: 0,
+        dataPointIndex: 0,
+        value: null,
+        category: '',
+        seriesName: ''
+      },
+      default: true,
     },
-    /* wwEditor:start */
-    wwEditorState: {
-      type: Object,
-      required: true
+  ],
+  properties: {
+    dataType: {
+      label: 'Mode',
+      type: 'TextSelect',
+      options: {
+        options: [
+          { value: 'guided', label: 'Guided' },
+          { value: 'advanced', label: 'Advanced' },
+        ],
+      },
+      section: 'settings',
+      defaultValue: 'guided',
     },
-    /* wwEditor:end */
-  },
-  emits: ['trigger-event'],
-  computed: {
-    chartType() {
-      if (this.content.dataType === 'advanced') {
-        return this.content.chartOptions?.chart?.type || 'line';
-      }
-      return this.content.chartType || 'line';
+
+    // ADVANCED MODE PROPERTIES
+    series: {
+      label: 'Series',
+      type: 'Info',
+      options: { text: 'Chart Series' },
+      section: 'settings',
+      bindable: 'list',
+      defaultValue: [{ name: 'My Series', data: [10, 41, 35, 51, 49, 62, 69] }],
+      hidden: content => content.dataType !== 'advanced',
+      /* wwEditor:start */
+      bindingValidation: {
+        type: 'array',
+        tooltip: 'An array of series objects: [{ name: "series-1", data: [30, 40, 45] }]',
+      },
+      /* wwEditor:end */
     },
-    finalSeries() {
-      if (this.content.dataType === 'advanced') {
-        return Array.isArray(this.content.series) ? this.content.series : [];
-      }
-
-      const rawData = wwLib.wwUtils.getDataFromCollection(this.content.data);
-
-      if (!Array.isArray(rawData) || rawData.length === 0) {
-        // Return a valid empty series structure
-        if (['pie', 'donut', 'radialBar'].includes(this.chartType)) {
-          return [];
-        }
-        return [{ data: [] }];
-      }
-
-      const valueField = this.content.valueField;
-      const seriesField = this.content.seriesField;
-
-      if (['pie', 'donut', 'radialBar'].includes(this.chartType)) {
-        return rawData.map(item => _.get(item, valueField, 0));
-      }
-
-      if (!seriesField) {
-        return [{
-          name: valueField || 'Value',
-          data: rawData.map(item => _.get(item, valueField, 0))
-        }];
-      } else {
-        const grouped = _.groupBy(rawData, seriesField);
-        return Object.keys(grouped).map(seriesName => ({
-          name: seriesName,
-          data: grouped[seriesName].map(item => _.get(item, valueField, 0)),
-        }));
-      }
+    chartOptions: {
+      label: 'Chart Options',
+      type: 'Info',
+      options: { text: 'Chart Options' },
+      section: 'settings',
+      bindable: 'list',
+      defaultValue: {
+        chart: { type: 'line' },
+        xaxis: { categories: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul'] },
+      },
+      hidden: content => content.dataType !== 'advanced',
+      /* wwEditor:start */
+      bindingValidation: {
+        type: 'object',
+        tooltip: 'A full ApexCharts options object.',
+      },
+      /* wwEditor:end */
     },
-    finalChartOptions() {
-      if (this.content.dataType === 'advanced') {
-        return this.content.chartOptions || {};
-      }
 
-      const rawData = wwLib.wwUtils.getDataFromCollection(this.content.data);
-      const categories = this.getGuidedCategories(rawData);
-      const labels = this.getGuidedLabels(rawData);
-
-      // Build the options object conditionally to avoid passing undefined
-      const options = {
-        chart: {
-          type: this.chartType,
-          stacked: this.content.stacked || false,
-          events: {
-            dataPointSelection: (event, chartContext, config) => {
-              this.handleDataPointClick(config);
-            },
-          },
-          toolbar: {
-            show: false
-          }
-        },
-        dataLabels: {
-          enabled: this.content.dataLabels,
-        },
-        stroke: {
-          curve: this.content.curve || 'smooth',
-        },
-        legend: {
-          show: this.content.isLegend,
-          position: this.content.legendPosition,
-        },
-      };
-
-      // Configure X-axis with categories or labels
-      if (categories.length) {
-        options.xaxis = { 
-          categories: categories,
-          type: 'category'
-        };
-      } else if (labels.length) {
-        options.xaxis = {
-          categories: labels,
-          type: 'category'
-        };
-      }
-
-      if (labels.length && ['pie', 'donut', 'radialBar'].includes(this.chartType)) {
-        options.labels = labels;
-      }
-
-      // Configure Y-axis to start from 0
-      if (!['pie', 'donut', 'radialBar'].includes(this.chartType)) {
-        options.yaxis = {
-          min: 0
-        };
-      }
-
-      if (this.content.colors && this.content.colors.length) {
-        options.colors = this.content.colors;
-      }
-
-      // Add support lines (annotations)
-      if (this.shouldShowSupportLines() && (this.content.showMinLine || this.content.showMaxLine)) {
-        options.annotations = this.getSupportLineAnnotations(rawData);
-      }
-
-      return options;
+    // GUIDED MODE PROPERTIES
+    data: {
+      label: 'Data',
+      type: 'Info',
+      options: { text: 'Bind collection data' },
+      section: 'settings',
+      bindable: 'list',
+      defaultValue: null,
+      hidden: content => content.dataType !== 'guided',
+      /* wwEditor:start */
+      bindingValidation: {
+        type: 'array',
+        tooltip: 'A collection of data in array format: [{}, {}, ...]',
+      },
+      /* wwEditor:end */
     },
-  },
-  methods: {
-    getGuidedCategories(data) {
-      // Return an empty array instead of undefined
-      if (!Array.isArray(data) || !data.length || ['pie', 'donut', 'radialBar'].includes(this.chartType)) {
-        return [];
-      }
-
-      const categoryField = this.content.categoryField;
-      if (!categoryField) return [];
-
-      // Get all categories and maintain order
-      return data.map(item => _.get(item, categoryField)).filter(cat => cat !== undefined && cat !== null);
+    dataError: {
+      type: 'Info',
+      options: { text: '⚠️ Invalid value. Data must be an array of objects.' },
+      section: 'settings',
+      hidden: content => {
+        if (content.dataType !== 'guided' || !content.data) return true;
+        const data = (!content.data || Array.isArray(content.data) ? content.data : content.data.data) || null;
+        return Array.isArray(data);
+      },
     },
-    getGuidedLabels(data) {
-      // Return an empty array and use categoryField for labels
-      if (!Array.isArray(data) || !data.length || !['pie', 'donut', 'radialBar'].includes(this.chartType)) {
-        return [];
-      }
-
-      const categoryField = this.content.categoryField;
-      if (!categoryField) return [];
-
-      return data.map(item => _.get(item, categoryField));
+    chartType: {
+      label: 'Chart type',
+      type: 'TextSelect',
+      options: {
+        options: [
+          { value: 'line', label: 'Line' },
+          { value: 'bar', label: 'Bar' },
+          { value: 'area', label: 'Area' },
+          { value: 'pie', label: 'Pie' },
+          { value: 'donut', label: 'Donut' },
+          { value: 'radialBar', label: 'Radial Bar' },
+          { value: 'radar', label: 'Radar' },
+        ],
+      },
+      section: 'settings',
+      defaultValue: 'bar',
+      hidden: content => content.dataType !== 'guided',
     },
-    shouldShowSupportLines() {
-      // Support lines only make sense for certain chart types
-      return ['line', 'bar', 'area', 'radar'].includes(this.chartType);
+    categoryField: {
+      label: 'Category field (X-axis)',
+      type: 'ObjectPropertyPath',
+      options: content => {
+        const data = (!content.data || Array.isArray(content.data) ? content.data : content.data.data) || [];
+        if (!Array.isArray(data) || !data[0]) return null;
+        return { object: data[0] };
+      },
+      section: 'settings',
+      hidden: content => content.dataType !== 'guided' || ['pie', 'donut', 'radialBar'].includes(content.chartType),
     },
-    getSupportLineAnnotations(rawData) {
-      if (!Array.isArray(rawData) || rawData.length === 0 || !this.content.valueField) {
-        return { yaxis: [] };
-      }
-
-      const values = rawData.map(item => _.get(item, this.content.valueField, 0));
-      const minValue = Math.min(...values);
-      const maxValue = Math.max(...values);
-      
-      const annotations = [];
-
-      // Add minimum line
-      if (this.content.showMinLine) {
-        annotations.push({
-          y: this.content.customMinValue !== undefined ? this.content.customMinValue : minValue,
-          borderColor: this.content.minLineColor || '#FF4560',
-          borderWidth: this.content.minLineWidth || 2,
-          strokeDashArray: this.content.minLineDashed ? 5 : 0,
-          label: {
-            text: this.content.minLineLabel || `Min: ${this.content.customMinValue !== undefined ? this.content.customMinValue : minValue}`,
-            style: {
-              color: this.content.minLineColor || '#FF4560',
-              background: '#fff',
-              fontSize: '12px',
-              padding: {
-                left: 5,
-                right: 5,
-                top: 2,
-                bottom: 2,
-              }
-            },
-            position: this.content.minLineLabelPosition || 'right'
-          }
-        });
-      }
-
-      // Add maximum line
-      if (this.content.showMaxLine) {
-        annotations.push({
-          y: this.content.customMaxValue !== undefined ? this.content.customMaxValue : maxValue,
-          borderColor: this.content.maxLineColor || '#00E396',
-          borderWidth: this.content.maxLineWidth || 2,
-          strokeDashArray: this.content.maxLineDashed ? 5 : 0,
-          label: {
-            text: this.content.maxLineLabel || `Max: ${this.content.customMaxValue !== undefined ? this.content.customMaxValue : maxValue}`,
-            style: {
-              color: this.content.maxLineColor || '#00E396',
-              background: '#fff',
-              fontSize: '12px',
-              padding: {
-                left: 5,
-                right: 5,
-                top: 2,
-                bottom: 2,
-              }
-            },
-            position: this.content.maxLineLabelPosition || 'right'
-          }
-        });
-      }
-
-      return { yaxis: annotations };
+    valueField: {
+      label: 'Value field (Y-axis)',
+      type: 'ObjectPropertyPath',
+      options: content => {
+        const data = (!content.data || Array.isArray(content.data) ? content.data : content.data.data) || [];
+        if (!Array.isArray(data) || !data[0]) return null;
+        return { object: data[0] };
+      },
+      section: 'settings',
+      hidden: content => content.dataType !== 'guided',
     },
-    handleDataPointClick(config) {
-      const { seriesIndex, dataPointIndex } = config;
-      const series = this.finalSeries[seriesIndex];
-      let value, category, seriesName;
+    seriesField: {
+      label: 'Group by (series)',
+      type: 'ObjectPropertyPath',
+      options: content => {
+        const data = (!content.data || Array.isArray(content.data) ? content.data : content.data.data) || [];
+        if (!Array.isArray(data) || !data[0]) return null;
+        return { object: data[0] };
+      },
+      section: 'settings',
+      hidden: content => content.dataType !== 'guided' || ['pie', 'donut', 'radialBar'].includes(content.chartType),
+    },
+    dataLabels: {
+      label: 'Data labels',
+      type: 'OnOff',
+      section: 'settings',
+      defaultValue: false,
+      hidden: content => content.dataType !== 'guided',
+    },
+    isLegend: {
+      label: 'Legend',
+      type: 'OnOff',
+      section: 'settings',
+      defaultValue: true,
+      hidden: content => content.dataType !== 'guided',
+    },
+    legendPosition: {
+      label: 'Legend Position',
+      type: 'TextSelect',
+      options: {
+        options: [
+          { value: 'top', label: 'Top' },
+          { value: 'right', label: 'Right' },
+          { value: 'bottom', label: 'Bottom' },
+          { value: 'left', label: 'Left' },
+        ],
+      },
+      defaultValue: 'bottom',
+      section: 'settings',
+      hidden: content => content.dataType !== 'guided' || !content.isLegend,
+    },
+    stacked: {
+      label: 'Stacked',
+      type: 'OnOff',
+      section: 'settings',
+      defaultValue: false,
+      hidden: content => content.dataType !== 'guided' || !['bar', 'area'].includes(content.chartType),
+    },
+    curve: {
+      label: 'Curve',
+      type: 'TextSelect',
+      options: {
+        options: [
+          { value: 'smooth', label: 'Smooth' },
+          { value: 'straight', label: 'Straight' },
+          { value: 'stepline', label: 'Stepline' },
+        ],
+      },
+      section: 'settings',
+      defaultValue: 'smooth',
+      hidden: content => content.dataType !== 'guided' || !['line', 'area'].includes(content.chartType),
+    },
+    colors: {
+      label: 'Colors',
+      type: 'Array',
+      section: 'settings',
+      options: { item: { type: 'Color' } },
+      defaultValue: [],
+      hidden: content => content.dataType !== 'guided',
+    },
 
-      if (series) {
-        seriesName = series.name;
-        value = Array.isArray(series.data) ? series.data[dataPointIndex] : this.finalSeries[dataPointIndex];
-      }
+    // Y-AXIS SCALING
+    yAxisStartFromZero: {
+      label: 'Y-axis starts from zero',
+      type: 'OnOff',
+      section: 'settings',
+      defaultValue: false,
+      hidden: content => content.dataType !== 'guided' || ['pie', 'donut', 'radialBar'].includes(content.chartType),
+    },
 
-      const categories = this.finalChartOptions.xaxis?.categories;
-      if (Array.isArray(categories)) {
-        category = categories[dataPointIndex];
-      } else {
-        const labels = this.finalChartOptions.labels;
-        category = Array.isArray(labels) ? labels[dataPointIndex] : '';
-      }
+    // SUPPORT LINES SECTION
+    supportLinesSection: {
+      type: 'Info',
+      options: { text: 'Support Lines' },
+      section: 'settings',
+      hidden: content => content.dataType !== 'guided' || !['line', 'bar', 'area', 'radar'].includes(content.chartType),
+    },
 
-      this.$emit('trigger-event', {
-        name: 'dataPointClick',
-        event: {
-          seriesIndex,
-          dataPointIndex,
-          value,
-          category,
-          seriesName,
-        },
-      });
+    // MIN LINE PROPERTIES
+    showMinLine: {
+      label: 'Show minimum line',
+      type: 'OnOff',
+      section: 'settings',
+      defaultValue: false,
+      hidden: content => content.dataType !== 'guided' || !['line', 'bar', 'area', 'radar'].includes(content.chartType),
+    },
+    customMinValue: {
+      label: 'Custom min value',
+      type: 'Number',
+      section: 'settings',
+      bindable: true,
+      hidden: content => content.dataType !== 'guided' || !content.showMinLine || !['line', 'bar', 'area', 'radar'].includes(content.chartType),
+      /* wwEditor:start */
+      bindingValidation: {
+        type: 'number',
+        tooltip: 'Custom minimum value for the support line. If not set, uses data minimum.',
+      },
+      /* wwEditor:end */
+    },
+    minLineColor: {
+      label: 'Min line color',
+      type: 'Color',
+      section: 'settings',
+      defaultValue: '#FF4560',
+      hidden: content => content.dataType !== 'guided' || !content.showMinLine || !['line', 'bar', 'area', 'radar'].includes(content.chartType),
+    },
+    minLineWidth: {
+      label: 'Min line width',
+      type: 'Number',
+      section: 'settings',
+      defaultValue: 2,
+      options: { min: 1, max: 10 },
+      hidden: content => content.dataType !== 'guided' || !content.showMinLine || !['line', 'bar', 'area', 'radar'].includes(content.chartType),
+    },
+    minLineDashed: {
+      label: 'Min line dashed',
+      type: 'OnOff',
+      section: 'settings',
+      defaultValue: false,
+      hidden: content => content.dataType !== 'guided' || !content.showMinLine || !['line', 'bar', 'area', 'radar'].includes(content.chartType),
+    },
+    minLineLabel: {
+      label: 'Min line label',
+      type: 'Text',
+      section: 'settings',
+      bindable: true,
+      hidden: content => content.dataType !== 'guided' || !content.showMinLine || !['line', 'bar', 'area', 'radar'].includes(content.chartType),
+    },
+    minLineLabelPosition: {
+      label: 'Min line label position',
+      type: 'TextSelect',
+      options: {
+        options: [
+          { value: 'left', label: 'Left' },
+          { value: 'right', label: 'Right' },
+        ],
+      },
+      section: 'settings',
+      defaultValue: 'right',
+      hidden: content => content.dataType !== 'guided' || !content.showMinLine || !['line', 'bar', 'area', 'radar'].includes(content.chartType),
+    },
+
+    // MAX LINE PROPERTIES
+    showMaxLine: {
+      label: 'Show maximum line',
+      type: 'OnOff',
+      section: 'settings',
+      defaultValue: false,
+      hidden: content => content.dataType !== 'guided' || !['line', 'bar', 'area', 'radar'].includes(content.chartType),
+    },
+    customMaxValue: {
+      label: 'Custom max value',
+      type: 'Number',
+      section: 'settings',
+      bindable: true,
+      hidden: content => content.dataType !== 'guided' || !content.showMaxLine || !['line', 'bar', 'area', 'radar'].includes(content.chartType),
+      /* wwEditor:start */
+      bindingValidation: {
+        type: 'number',
+        tooltip: 'Custom maximum value for the support line. If not set, uses data maximum.',
+      },
+      /* wwEditor:end */
+    },
+    maxLineColor: {
+      label: 'Max line color',
+      type: 'Color',
+      section: 'settings',
+      defaultValue: '#00E396',
+      hidden: content => content.dataType !== 'guided' || !content.showMaxLine || !['line', 'bar', 'area', 'radar'].includes(content.chartType),
+    },
+    maxLineWidth: {
+      label: 'Max line width',
+      type: 'Number',
+      section: 'settings',
+      defaultValue: 2,
+      options: { min: 1, max: 10 },
+      hidden: content => content.dataType !== 'guided' || !content.showMaxLine || !['line', 'bar', 'area', 'radar'].includes(content.chartType),
+    },
+    maxLineDashed: {
+      label: 'Max line dashed',
+      type: 'OnOff',
+      section: 'settings',
+      defaultValue: false,
+      hidden: content => content.dataType !== 'guided' || !content.showMaxLine || !['line', 'bar', 'area', 'radar'].includes(content.chartType),
+    },
+    maxLineLabel: {
+      label: 'Max line label',
+      type: 'Text',
+      section: 'settings',
+      bindable: true,
+      hidden: content => content.dataType !== 'guided' || !content.showMaxLine || !['line', 'bar', 'area', 'radar'].includes(content.chartType),
+    },
+    maxLineLabelPosition: {
+      label: 'Max line label position',
+      type: 'TextSelect',
+      options: {
+        options: [
+          { value: 'left', label: 'Left' },
+          { value: 'right', label: 'Right' },
+        ],
+      },
+      section: 'settings',
+      defaultValue: 'right',
+      hidden: content => content.dataType !== 'guided' || !content.showMaxLine || !['line', 'bar', 'area', 'radar'].includes(content.chartType),
     },
   },
 };
-</script>
-
-<style lang="scss" scoped>
-.apexchart-element {
-  width: 100%;
-  height: 100%;
-}
-</style>
