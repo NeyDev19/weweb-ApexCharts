@@ -36,6 +36,10 @@ export default {
       if (this.content.dataType === 'advanced') {
         return this.content.chartOptions?.chart?.type || 'line';
       }
+      // Force line chart for sparkline mode
+      if (this.content.sparklineMode) {
+        return 'line';
+      }
       return this.content.chartType || 'line';
     },
     finalSeries() {
@@ -94,34 +98,42 @@ export default {
           },
           toolbar: {
             show: false
+          },
+          sparkline: {
+            enabled: this.content.sparklineMode || false
           }
         },
         dataLabels: {
-          enabled: this.content.dataLabels,
+          enabled: this.content.sparklineMode ? false : this.content.dataLabels,
         },
         stroke: {
           curve: this.content.curve || 'smooth',
         },
         legend: {
-          show: this.content.isLegend,
+          show: this.content.sparklineMode ? false : this.content.isLegend,
           position: this.content.legendPosition,
         },
         grid: {
-          show: false, // Remove background grid lines
+          show: this.content.sparklineMode ? false : false, // Keep grid hidden for both modes
+        },
+        tooltip: {
+          enabled: !this.content.sparklineMode, // Hide tooltips in sparkline mode
         },
       };
 
       // Configure X-axis with categories or labels
-      if (categories.length) {
-        options.xaxis = { 
-          categories: categories,
-          type: 'category'
-        };
-      } else if (labels.length) {
-        options.xaxis = {
-          categories: labels,
-          type: 'category'
-        };
+      if (!this.content.sparklineMode) {
+        if (categories.length) {
+          options.xaxis = { 
+            categories: categories,
+            type: 'category'
+          };
+        } else if (labels.length) {
+          options.xaxis = {
+            categories: labels,
+            type: 'category'
+          };
+        }
       }
 
       if (labels.length && ['pie', 'donut', 'radialBar'].includes(this.chartType)) {
@@ -129,7 +141,7 @@ export default {
       }
 
       // Configure Y-axis with better scaling
-      if (!['pie', 'donut', 'radialBar'].includes(this.chartType)) {
+      if (!['pie', 'donut', 'radialBar'].includes(this.chartType) && !this.content.sparklineMode) {
         const baseYAxisConfig = {
           forceNiceScale: true,
           tickAmount: 6, // Limit to ~6 tick marks for cleaner look
@@ -202,8 +214,8 @@ export default {
         options.colors = this.content.colors;
       }
 
-      // Add support lines (annotations)
-      if (this.shouldShowSupportLines() && (this.content.showMinLine || this.content.showMaxLine)) {
+      // Add support lines (annotations) - hide in sparkline mode
+      if (!this.content.sparklineMode && this.shouldShowSupportLines() && (this.content.showMinLine || this.content.showMaxLine)) {
         options.annotations = this.getSupportLineAnnotations(rawData);
       }
 
