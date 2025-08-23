@@ -108,13 +108,28 @@ export default {
         },
       };
 
-      // Only add properties if they have valid data
+      // Configure X-axis with categories or labels
       if (categories.length) {
-        options.xaxis = { categories: categories };
+        options.xaxis = { 
+          categories: categories,
+          type: 'category'
+        };
+      } else if (labels.length) {
+        options.xaxis = {
+          categories: labels,
+          type: 'category'
+        };
       }
 
-      if (labels.length) {
+      if (labels.length && ['pie', 'donut', 'radialBar'].includes(this.chartType)) {
         options.labels = labels;
+      }
+
+      // Configure Y-axis to start from 0
+      if (!['pie', 'donut', 'radialBar'].includes(this.chartType)) {
+        options.yaxis = {
+          min: 0
+        };
       }
 
       if (this.content.colors && this.content.colors.length) {
@@ -139,7 +154,8 @@ export default {
       const categoryField = this.content.categoryField;
       if (!categoryField) return [];
 
-      return _.uniq(data.map(item => _.get(item, categoryField)));
+      // Get all categories and maintain order
+      return data.map(item => _.get(item, categoryField)).filter(cat => cat !== undefined && cat !== null);
     },
     getGuidedLabels(data) {
       // Return an empty array and use categoryField for labels
