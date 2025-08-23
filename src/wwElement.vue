@@ -127,25 +127,64 @@ export default {
 
       // Configure Y-axis with better scaling
       if (!['pie', 'donut', 'radialBar'].includes(this.chartType)) {
-        const rawData = wwLib.wwUtils.getDataFromCollection(this.content.data);
-        const values = Array.isArray(rawData) && rawData.length && this.content.valueField 
-          ? rawData.map(item => _.get(item, this.content.valueField, 0))
-          : [];
-        
-        const minValue = values.length ? Math.min(...values) : 0;
-        const maxValue = values.length ? Math.max(...values) : 100;
-        const range = maxValue - minValue;
-        
-        // Calculate better Y-axis bounds
-        const padding = range * 0.1; // 10% padding
-        const yMin = Math.max(0, minValue - padding);
-        const yMax = maxValue + padding;
-        
-        options.yaxis = {
-          min: yMin,
-          max: yMax,
-          forceNiceScale: true, // This helps create nicer tick intervals
-        };
+        if (this.content.yAxisStartFromZero) {
+          // Force Y-axis to start from 0
+          options.yaxis = {
+            min: 0,
+            forceNiceScale: true,
+          };
+        } else {
+          // Auto-scale with padding for better visualization
+          const rawData = wwLib.wwUtils.getDataFromCollection(this.content.data);
+          const values = Array.isArray(rawData) && rawData.length && this.content.valueField 
+            ? rawData.map(item => _.get(item, this.content.valueField, 0))
+            : [];
+          
+          if (values.length) {
+            const minValue = Math.min(...values);
+            const maxValue = Math.max(...values);
+            
+            // Get support line values if they exist
+            let supportLineMin = null;
+            let supportLineMax = null;
+            
+            if (this.content.showMinLine) {
+              supportLineMin = this.content.customMinValue !== undefined 
+                ? this.content.customMinValue 
+                : minValue;
+            }
+            
+            if (this.content.showMaxLine) {
+              supportLineMax = this.content.customMaxValue !== undefined 
+                ? this.content.customMaxValue 
+                : maxValue;
+            }
+            
+            // Find the actual bounds including support lines
+            const allValues = [minValue, maxValue];
+            if (supportLineMin !== null) allValues.push(supportLineMin);
+            if (supportLineMax !== null) allValues.push(supportLineMax);
+            
+            const actualMin = Math.min(...allValues);
+            const actualMax = Math.max(...allValues);
+            const range = actualMax - actualMin;
+            
+            // Calculate Y-axis bounds with 10% padding
+            const padding = range * 0.1;
+            const yMin = Math.max(0, actualMin - padding);
+            const yMax = actualMax + padding;
+            
+            options.yaxis = {
+              min: yMin,
+              max: yMax,
+              forceNiceScale: true,
+            };
+          } else {
+            options.yaxis = {
+              forceNiceScale: true,
+            };
+          }
+        }
       }
 
       if (this.content.colors && this.content.colors.length) {
