@@ -214,9 +214,23 @@ export default {
         options.colors = this.content.colors;
       }
 
-      // Add support lines (annotations) - hide in sparkline mode
-      if (!this.content.sparklineMode && this.shouldShowSupportLines() && (this.content.showMinLine || this.content.showMaxLine)) {
-        options.annotations = this.getSupportLineAnnotations(rawData);
+      // Add annotations (support lines + point annotations) - hide in sparkline mode
+      if (!this.content.sparklineMode && this.shouldShowSupportLines()) {
+        const annotations = { yaxis: [], points: [] };
+        
+        // Add support lines
+        if (this.content.showMinLine || this.content.showMaxLine) {
+          annotations.yaxis = this.getSupportLineAnnotations(rawData).yaxis;
+        }
+        
+        // Add point annotations
+        if (this.content.enablePointAnnotations && Array.isArray(this.content.pointAnnotations)) {
+          annotations.points = this.getPointAnnotations();
+        }
+        
+        if (annotations.yaxis.length > 0 || annotations.points.length > 0) {
+          options.annotations = annotations;
+        }
       }
 
       return options;
@@ -247,8 +261,63 @@ export default {
       return data.map(item => _.get(item, categoryField));
     },
     shouldShowSupportLines() {
-      // Support lines only make sense for certain chart types
+      // Support lines and point annotations only make sense for certain chart types
       return ['line', 'bar', 'area', 'radar'].includes(this.chartType);
+    },
+    getPointAnnotations() {
+      if (!Array.isArray(this.content.pointAnnotations) || this.content.pointAnnotations.length === 0) {
+        return [];
+      }
+
+      return this.content.pointAnnotations.map(annotation => ({
+        x: annotation.x,
+        y: annotation.y,
+        marker: {
+          size: annotation.size || 6,
+          fillColor: annotation.color || '#FF4560',
+          strokeColor: '#fff',
+          strokeWidth: 2,
+        },
+        label: annotation.showLabel ? {
+          text: annotation.label || 'Note',
+          offsetY: this.getLabelOffset(annotation.labelPosition || 'top'),
+          offsetX: this.getLabelOffsetX(annotation.labelPosition || 'top'),
+          style: {
+            color: annotation.color || '#FF4560',
+            background: '#fff',
+            fontSize: '12px',
+            fontWeight: 500,
+            padding: {
+              left: 5,
+              right: 5,
+              top: 2,
+              bottom: 2,
+            },
+            border: {
+              color: annotation.color || '#FF4560',
+              width: 1,
+            }
+          }
+        } : undefined
+      }));
+    },
+    getLabelOffset(position) {
+      switch (position) {
+        case 'top': return -15;
+        case 'bottom': return 15;
+        case 'left':
+        case 'right': return 0;
+        default: return -15;
+      }
+    },
+    getLabelOffsetX(position) {
+      switch (position) {
+        case 'left': return -15;
+        case 'right': return 15;
+        case 'top':
+        case 'bottom': return 0;
+        default: return 0;
+      }
     },
     getSupportLineAnnotations(rawData) {
       if (!Array.isArray(rawData) || rawData.length === 0 || !this.content.valueField) {
