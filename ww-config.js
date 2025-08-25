@@ -4,7 +4,6 @@ export default {
       en: 'Apexchart',
     },
 
-    // SPARKLINE MODE
     sparklineMode: {
       label: 'Sparkline mode (minimal)',
       type: 'OnOff',
@@ -27,9 +26,7 @@ export default {
       'isLegend',
       'legendPosition',
       'colors',
-      // Y-axis scaling
       'yAxisStartFromZero',
-      // Support Lines section
       'supportLinesSection',
       'showMinLine',
       ['customMinValue', 'minLineColor', 'minLineWidth', 'minLineDashed', 'minLineLabel', 'minLineLabelPosition'],
@@ -65,7 +62,6 @@ export default {
       defaultValue: 'guided',
     },
 
-    // ADVANCED MODE PROPERTIES
     series: {
       label: 'Series',
       type: 'Info',
@@ -100,7 +96,6 @@ export default {
       /* wwEditor:end */
     },
 
-    // GUIDED MODE PROPERTIES
     data: {
       label: 'Data',
       type: 'Info',
@@ -243,7 +238,6 @@ export default {
       hidden: content => content.dataType !== 'guided' || content.sparklineMode,
     },
 
-    // Y-AXIS SCALING
     yAxisStartFromZero: {
       label: 'Y-axis starts from zero',
       type: 'OnOff',
@@ -252,7 +246,6 @@ export default {
       hidden: content => content.dataType !== 'guided' || content.sparklineMode || ['pie', 'donut', 'radialBar'].includes(content.chartType),
     },
 
-    // SUPPORT LINES SECTION
     supportLinesSection: {
       type: 'Info',
       options: { text: 'Support Lines' },
@@ -260,7 +253,6 @@ export default {
       hidden: content => content.dataType !== 'guided' || content.sparklineMode || !['line', 'bar', 'area', 'radar'].includes(content.chartType),
     },
 
-    // MIN LINE PROPERTIES
     showMinLine: {
       label: 'Show minimum line',
       type: 'OnOff',
@@ -324,7 +316,6 @@ export default {
       hidden: content => content.dataType !== 'guided' || content.sparklineMode || !content.showMinLine || !['line', 'bar', 'area', 'radar'].includes(content.chartType),
     },
 
-    // MAX LINE PROPERTIES
     showMaxLine: {
       label: 'Show maximum line',
       type: 'OnOff',

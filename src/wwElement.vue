@@ -36,7 +36,6 @@ export default {
       if (this.content.dataType === 'advanced') {
         return this.content.chartOptions?.chart?.type || 'line';
       }
-      // Force line chart for sparkline mode
       if (this.content.sparklineMode) {
         return 'line';
       }
@@ -50,7 +49,6 @@ export default {
       const rawData = wwLib.wwUtils.getDataFromCollection(this.content.data);
 
       if (!Array.isArray(rawData) || rawData.length === 0) {
-        // Return a valid empty series structure
         if (['pie', 'donut', 'radialBar'].includes(this.chartType)) {
           return [];
         }
@@ -86,7 +84,6 @@ export default {
       const categories = this.getGuidedCategories(rawData);
       const labels = this.getGuidedLabels(rawData);
 
-      // Build the options object conditionally to avoid passing undefined
       const options = {
         chart: {
           type: this.chartType,
@@ -114,14 +111,13 @@ export default {
           position: this.content.legendPosition,
         },
         grid: {
-          show: this.content.sparklineMode ? false : false, // Keep grid hidden for both modes
+          show: this.content.sparklineMode ? false : false,
         },
         tooltip: {
-          enabled: !this.content.sparklineMode, // Hide tooltips in sparkline mode
+          enabled: !this.content.sparklineMode,
         },
       };
 
-      // Configure X-axis with categories or labels
       if (!this.content.sparklineMode) {
         if (categories.length) {
           options.xaxis = { 
@@ -140,11 +136,10 @@ export default {
         options.labels = labels;
       }
 
-      // Configure Y-axis with better scaling
       if (!['pie', 'donut', 'radialBar'].includes(this.chartType) && !this.content.sparklineMode) {
         const baseYAxisConfig = {
           forceNiceScale: true,
-          tickAmount: 6, // Limit to ~6 tick marks for cleaner look
+          tickAmount: 6,
           labels: {
             formatter: function(value) {
               return Math.round(value);
@@ -153,13 +148,11 @@ export default {
         };
 
         if (this.content.yAxisStartFromZero) {
-          // Force Y-axis to start from 0
           options.yaxis = {
             ...baseYAxisConfig,
             min: 0,
           };
         } else {
-          // Auto-scale with padding for better visualization
           const rawData = wwLib.wwUtils.getDataFromCollection(this.content.data);
           const values = Array.isArray(rawData) && rawData.length && this.content.valueField 
             ? rawData.map(item => _.get(item, this.content.valueField, 0))
@@ -169,7 +162,6 @@ export default {
             const minValue = Math.min(...values);
             const maxValue = Math.max(...values);
             
-            // Get support line values if they exist
             let supportLineMin = null;
             let supportLineMax = null;
             
@@ -185,7 +177,6 @@ export default {
                 : maxValue;
             }
             
-            // Find the actual bounds including support lines
             const allValues = [minValue, maxValue];
             if (supportLineMin !== null) allValues.push(supportLineMin);
             if (supportLineMax !== null) allValues.push(supportLineMax);
@@ -194,7 +185,6 @@ export default {
             const actualMax = Math.max(...allValues);
             const range = actualMax - actualMin;
             
-            // Calculate Y-axis bounds with 10% padding
             const padding = range * 0.1;
             const yMin = Math.max(0, actualMin - padding);
             const yMax = actualMax + padding;
@@ -214,23 +204,8 @@ export default {
         options.colors = this.content.colors;
       }
 
-      // Add annotations (support lines + point annotations) - hide in sparkline mode
-      if (!this.content.sparklineMode && this.shouldShowSupportLines()) {
-        const annotations = { yaxis: [], points: [] };
-        
-        // Add support lines
-        if (this.content.showMinLine || this.content.showMaxLine) {
-          annotations.yaxis = this.getSupportLineAnnotations(rawData).yaxis;
-        }
-        
-        // Add point annotations
-        if (this.content.enablePointAnnotations && Array.isArray(this.content.pointAnnotations)) {
-          annotations.points = this.getPointAnnotations();
-        }
-        
-        if (annotations.yaxis.length > 0 || annotations.points.length > 0) {
-          options.annotations = annotations;
-        }
+      if (!this.content.sparklineMode && this.shouldShowSupportLines() && (this.content.showMinLine || this.content.showMaxLine)) {
+        options.annotations = this.getSupportLineAnnotations(rawData);
       }
 
       return options;
@@ -238,7 +213,6 @@ export default {
   },
   methods: {
     getGuidedCategories(data) {
-      // Return an empty array instead of undefined
       if (!Array.isArray(data) || !data.length || ['pie', 'donut', 'radialBar'].includes(this.chartType)) {
         return [];
       }
@@ -246,11 +220,9 @@ export default {
       const categoryField = this.content.categoryField;
       if (!categoryField) return [];
 
-      // Get all categories and maintain order
       return data.map(item => _.get(item, categoryField)).filter(cat => cat !== undefined && cat !== null);
     },
     getGuidedLabels(data) {
-      // Return an empty array and use categoryField for labels
       if (!Array.isArray(data) || !data.length || !['pie', 'donut', 'radialBar'].includes(this.chartType)) {
         return [];
       }
@@ -261,63 +233,7 @@ export default {
       return data.map(item => _.get(item, categoryField));
     },
     shouldShowSupportLines() {
-      // Support lines and point annotations only make sense for certain chart types
       return ['line', 'bar', 'area', 'radar'].includes(this.chartType);
-    },
-    getPointAnnotations() {
-      if (!Array.isArray(this.content.pointAnnotations) || this.content.pointAnnotations.length === 0) {
-        return [];
-      }
-
-      return this.content.pointAnnotations.map(annotation => ({
-        x: annotation.x,
-        y: annotation.y,
-        marker: {
-          size: annotation.size || 6,
-          fillColor: annotation.color || '#FF4560',
-          strokeColor: '#fff',
-          strokeWidth: 2,
-        },
-        label: annotation.showLabel ? {
-          text: annotation.label || 'Note',
-          offsetY: this.getLabelOffset(annotation.labelPosition || 'top'),
-          offsetX: this.getLabelOffsetX(annotation.labelPosition || 'top'),
-          style: {
-            color: annotation.color || '#FF4560',
-            background: '#fff',
-            fontSize: '12px',
-            fontWeight: 500,
-            padding: {
-              left: 5,
-              right: 5,
-              top: 2,
-              bottom: 2,
-            },
-            border: {
-              color: annotation.color || '#FF4560',
-              width: 1,
-            }
-          }
-        } : undefined
-      }));
-    },
-    getLabelOffset(position) {
-      switch (position) {
-        case 'top': return -15;
-        case 'bottom': return 15;
-        case 'left':
-        case 'right': return 0;
-        default: return -15;
-      }
-    },
-    getLabelOffsetX(position) {
-      switch (position) {
-        case 'left': return -15;
-        case 'right': return 15;
-        case 'top':
-        case 'bottom': return 0;
-        default: return 0;
-      }
     },
     getSupportLineAnnotations(rawData) {
       if (!Array.isArray(rawData) || rawData.length === 0 || !this.content.valueField) {
@@ -330,7 +246,6 @@ export default {
       
       const annotations = [];
 
-      // Add minimum line
       if (this.content.showMinLine) {
         annotations.push({
           y: this.content.customMinValue !== undefined ? this.content.customMinValue : minValue,
@@ -355,7 +270,6 @@ export default {
         });
       }
 
-      // Add maximum line
       if (this.content.showMaxLine) {
         annotations.push({
           y: this.content.customMaxValue !== undefined ? this.content.customMaxValue : maxValue,
